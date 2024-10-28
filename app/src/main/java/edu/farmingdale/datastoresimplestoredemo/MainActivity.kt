@@ -23,23 +23,39 @@ import edu.farmingdale.datastoresimplestoredemo.ui.theme.DataStoreSimpleStoreDem
 import kotlinx.coroutines.launch
 import java.io.FileOutputStream
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.TextField
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.text.TextStyle
 
 class MainActivity : ComponentActivity() {
+    private lateinit var store: AppStorage
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        store = AppStorage(this)
+        
         enableEdgeToEdge()
         setContent {
-            DataStoreSimpleStoreDemoTheme {
+            val appPrefs = store.appPreferenceFlow.collectAsState(AppPreferences())
+            
+            DataStoreSimpleStoreDemoTheme(
+                darkTheme = appPrefs.value.darkMode
+            ) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    DataStoreDemo(modifier = Modifier.padding(innerPadding))
+                    DataStoreDemo(
+                        modifier = Modifier.padding(innerPadding),
+                        store = store
+                    )
                 }
             }
         }
@@ -47,8 +63,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun DataStoreDemo(modifier: Modifier) {
-    val store = AppStorage(LocalContext.current)
+fun DataStoreDemo(
+    modifier: Modifier,
+    store: AppStorage
+) {
     val appPrefs = store.appPreferenceFlow.collectAsState(AppPreferences())
     val coroutineScope = rememberCoroutineScope()
     var username by remember { mutableStateOf("") }
@@ -64,17 +82,33 @@ fun DataStoreDemo(modifier: Modifier) {
 
         TextField(
             value = username,
-            onValueChange = { username = it },
-            label = { Text("Enter Username") }
+            onValueChange = { newValue: String -> 
+                try {
+                    username = newValue
+                } catch (e: Exception) {
+                    Log.e("DataStoreDemo", "Error updating username", e)
+                }
+            },
+            label = { Text("Enter Username") },
+            textStyle = TextStyle.Default,
+            colors = TextFieldDefaults.colors()
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         TextField(
             value = highScore,
-            onValueChange = { highScore = it },
+            onValueChange = { newValue: String -> 
+                try {
+                    highScore = newValue
+                } catch (e: Exception) {
+                    Log.e("DataStoreDemo", "Error updating high score", e)
+                }
+            },
             label = { Text("Enter High Score") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            textStyle = TextStyle.Default,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = TextFieldDefaults.colors()
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -82,8 +116,13 @@ fun DataStoreDemo(modifier: Modifier) {
         Row {
             Button(onClick = {
                 coroutineScope.launch {
-                    store.saveUsername(username)
-                    store.saveHighScore(highScore.toIntOrNull() ?: 0)
+                    try {
+                        store.saveUsername(username)
+                        store.saveHighScore(highScore.toIntOrNull() ?: 0)
+                        Log.d("DataStoreDemo", "Values saved successfully")
+                    } catch (e: Exception) {
+                        Log.e("DataStoreDemo", "Error saving values", e)
+                    }
                 }
             }) {
                 Text("Save Values")
@@ -93,7 +132,13 @@ fun DataStoreDemo(modifier: Modifier) {
 
             Button(onClick = {
                 coroutineScope.launch {
-                    store.saveDarkMode(!appPrefs.value.darkMode)
+                    try {
+                        val newDarkMode = !appPrefs.value.darkMode
+                        store.saveDarkMode(newDarkMode)
+                        Log.d("DataStoreDemo", "Dark mode toggled to: $newDarkMode")
+                    } catch (e: Exception) {
+                        Log.e("DataStoreDemo", "Error toggling dark mode", e)
+                    }
                 }
             }) {
                 Text("Toggle Dark Mode")
